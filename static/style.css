@@ -1,0 +1,31 @@
+body {
+    background-color: #f4f7f9;
+    font-family: Arial, sans-serif;
+}
+
+h2 {
+    color: #2c7a7b;
+    font-weight: bold;
+}
+
+.card {
+    border-radius: 12px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn-success {
+    background-color: #2c7a7b;
+    border: none;
+}
+
+.btn-success:hover {
+    background-color: #225e5f;
+}
+
+.table th {
+    text-align: center;
+}
+
+.table td {
+    text-align: center;
+}
