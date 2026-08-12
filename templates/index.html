@@ -58,7 +58,12 @@
 <script>
 function submitProduct() {
     const productName = document.getElementById("product_name").value;
-    const weightKg = document.getElementById("weight_kg").value;
+    const weightKg = parseFloat(document.getElementById("weight_kg").value);
+
+    if (!productName || isNaN(weightKg)) {
+        alert("Please enter a valid product name and numeric weight.");
+        return;
+    }
 
     fetch("/api/product", {
         method: "POST",
@@ -68,34 +73,50 @@ function submitProduct() {
             weight_kg: weightKg
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("Failed to save product");
+        }
+        return response.json();
+    })
     .then(data => {
-        alert("Product stored! Now fetching recommendations...");
-        fetchRecommendations();
+        const productId = data.product_id || 1;
+        fetchRecommendations(productId);
+    })
+    .catch(error => {
+        alert("Error: " + error.message);
     });
 }
 
-function fetchRecommendations() {
+function fetchRecommendations(productId = 1) {
     fetch("/api/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: 1 })  // demo: latest product
+        body: JSON.stringify({ product_id: parseInt(productId) })
     })
     .then(response => response.json())
     .then(data => {
         const table = document.getElementById("resultTable");
         table.innerHTML = "";
 
+        if (!data.recommendations || data.recommendations.length === 0) {
+            table.innerHTML = "<tr><td colspan='4' class='text-center'>No suitable recommendations found for this weight.</td></tr>";
+            return;
+        }
+
         data.recommendations.forEach(item => {
             table.innerHTML += `
                 <tr>
-                    <td>${item.Material_Type}</td>
+                    <td><strong>${item.Material_Type}</strong></td>
                     <td>${item.Co2_impact_index_pred.toFixed(3)}</td>
                     <td>${item.cost_efficiency_pred.toFixed(3)}</td>
-                    <td>${item.suitability_score.toFixed(3)}</td>
+                    <td><span class="badge bg-success">${item.suitability_score.toFixed(3)}</span></td>
                 </tr>
             `;
         });
+    })
+    .catch(error => {
+        console.error("Error fetching recommendations:", error);
     });
 }
 </script>

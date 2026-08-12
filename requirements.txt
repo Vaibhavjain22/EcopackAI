@@ -1,6 +1,12 @@
 pandas
-numpy 
+numpy
 scikit-learn
 xgboost
 matplotlib
-flask
+fastapi
+uvicorn[standard]
+pydantic
+jinja2
+psycopg2-binary
+joblib
+requests
