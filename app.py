@@ -53,7 +53,8 @@ def startup_db_check():
 # Home Page
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
+
 
 
 # 1. Product Input Handling API
