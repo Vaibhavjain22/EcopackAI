@@ -2,68 +2,234 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EcoPackAI – Sustainable Packaging Recommendation</title>
 
-    <!-- Bootstrap CDN -->
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!--custom css-->
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 
-<body class="bg-light">
+<body>
 
-<div class="container mt-5">
-    <h2 class="text-center mb-4">EcoPackAI – Packaging Material Recommendation</h2>
+<div class="container py-4" style="max-width: 1080px;">
 
-    <!-- Product Input Form -->
-    <div class="card p-4 mb-4">
-        <h5>Enter Product Details</h5>
-
-        <div class="mb-3">
-            <label class="form-label">Product Name</label>
-            <input type="text" id="product_name" class="form-control" placeholder="e.g. electronics">
+    <!-- Hero Header -->
+    <div class="hero-header text-center text-md-start">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <span class="hero-badge"><i class="bi bi-stars"></i> AI-Powered Sustainability</span>
+                <h1 class="fw-bold mb-2">EcoPackAI</h1>
+                <p class="lead mb-0 text-white-50" style="font-size: 1.05rem;">
+                    Intelligent packaging recommendation engine optimizing carbon footprint, unit cost, and material capacity.
+                </p>
+            </div>
+            <div class="col-md-4 text-center text-md-end mt-3 mt-md-0">
+                <div class="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-2 rounded-pill text-white border border-white border-opacity-25">
+                    <span class="spinner-grow spinner-grow-sm text-success" role="status"></span>
+                    <small class="fw-semibold">ML Inference Online</small>
+                </div>
+            </div>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label">Product Weight (kg)</label>
-            <input type="number" id="weight_kg" class="form-control" step="0.1">
-        </div>
-
-        <button class="btn btn-success" onclick="submitProduct()">Get Recommendation</button>
     </div>
 
-    <!-- Recommendation Table -->
-    <div class="card p-4">
-        <h5>Recommended Materials</h5>
+    <!-- Input Form Card -->
+    <div class="eco-card p-4 p-md-5 mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-box-seam text-success me-2"></i>Product Specification</h4>
+            <span class="text-muted small"><i class="bi bi-shield-check text-success"></i> PostgreSQL Backed</span>
+        </div>
 
-        <table class="table table-bordered mt-3">
-            <thead class="table-dark">
-                <tr>
-                    <th>Material Type</th>
-                    <th>CO₂ Impact</th>
-                    <th>Cost Efficiency</th>
-                    <th>Suitability Score</th>
-                </tr>
-            </thead>
-            <tbody id="resultTable">
-                <!-- Results will appear here -->
-            </tbody>
-        </table>
+        <!-- Quick Presets -->
+        <div class="mb-4">
+            <span class="form-label text-muted d-block small mb-2">Quick Test Presets:</span>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="preset-btn" onclick="applyPreset('Smartphone Box', 0.4)">📱 Smartphone (0.4 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Running Shoes', 1.2)">👟 Running Shoes (1.2 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Ultrabook Laptop', 2.6)">💻 Laptop (2.6 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Ceramic Crockery', 4.8)">🏺 Ceramic Set (4.8 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Office Monitor', 6.5)">🖥️ Office Monitor (6.5 kg)</button>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-7">
+                <label for="product_name" class="form-label">Product Name / Identifier</label>
+                <input type="text" id="product_name" class="form-control" placeholder="e.g. Wireless Noise Canceling Headphones" required>
+            </div>
+
+            <div class="col-md-5">
+                <label for="weight_kg" class="form-label">Product Weight (kg)</label>
+                <div class="input-group">
+                    <input type="number" id="weight_kg" class="form-control" placeholder="e.g. 1.5" step="0.1" min="0.05" required>
+                    <span class="input-group-text bg-light text-muted">kg</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-column flex-sm-row gap-3 mt-4 align-items-sm-center justify-content-between">
+            <button id="btnSubmit" class="btn-eco-primary" onclick="submitProduct()">
+                <i class="bi bi-lightning-charge-fill"></i> Generate AI Recommendations
+            </button>
+            <div id="statusText" class="text-muted small"></div>
+        </div>
+
+        <!-- Recent Products Quick Chips -->
+        <div id="recentContainer" class="mt-4 pt-3 border-top d-none">
+            <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-clock-history"></i> Recent Submissions:</span>
+            <div id="recentList" class="d-flex flex-wrap gap-2"></div>
+        </div>
     </div>
+
+    <!-- Loading State -->
+    <div id="loadingBox" class="text-center py-5 d-none">
+        <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted fw-semibold">Evaluating material durability, carbon footprint & cost efficiency...</p>
+    </div>
+
+    <!-- Recommendations Result Area -->
+    <div id="resultsSection" class="d-none">
+
+        <!-- Banner Summary -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between bg-white border p-3 rounded-4 mb-4 shadow-sm">
+            <div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 mb-1">Results Ready</span>
+                <h5 class="fw-bold mb-0" id="resultProductTitle">Recommended Packaging for Product</h5>
+            </div>
+            <div class="text-muted small mt-2 mt-sm-0">
+                <span id="resultProductWeight" class="fw-semibold text-dark">Weight: -</span> | Evaluated by <strong>EcoPackAI Multi-Objective Engine</strong>
+            </div>
+        </div>
+
+        <!-- Top 3 Recommendation Cards -->
+        <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-trophy text-warning me-2"></i>Top Recommended Eco Materials</h5>
+        <div class="row g-4 mb-4" id="cardsContainer">
+            <!-- Dynamically populated cards -->
+        </div>
+
+        <!-- Charts Section -->
+        <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-bar-chart-line text-primary me-2"></i>Visual Comparison Charts</h5>
+        <div class="row g-4 mb-4">
+            <!-- Bar Chart: CO2 vs Cost -->
+            <div class="col-lg-7">
+                <div class="chart-card">
+                    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-bar-chart-fill text-success me-1"></i> CO₂ Impact vs Cost Efficiency</h6>
+                    <div class="chart-wrapper">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <!-- Doughnut Chart: Suitability Score -->
+            <div class="col-lg-5">
+                <div class="chart-card">
+                    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-pie-chart-fill text-warning me-1"></i> Suitability Score Distribution</h6>
+                    <div class="chart-wrapper">
+                        <canvas id="doughnutChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Raw Data Table -->
+        <div class="eco-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0 text-muted"><i class="bi bi-table me-2"></i>Detailed Technical Metrics</h6>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tableCollapse">
+                    Toggle Table View
+                </button>
+            </div>
+            <div class="collapse show" id="tableCollapse">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Rank</th>
+                                <th>Material Type</th>
+                                <th>CO₂ Impact Index</th>
+                                <th>Cost Efficiency Score</th>
+                                <th>Overall Match</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
 </div>
 
-<script>
-function submitProduct() {
-    const productName = document.getElementById("product_name").value;
-    const weightKg = parseFloat(document.getElementById("weight_kg").value);
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    if (!productName || isNaN(weightKg)) {
-        alert("Please enter a valid product name and numeric weight.");
+<script>
+// Standard Baseline for Virgin Plastic PP CO2 index
+const PLASTIC_BASELINE_CO2 = 3.2;
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadRecentProducts();
+});
+
+function applyPreset(name, weight) {
+    document.getElementById("product_name").value = name;
+    document.getElementById("weight_kg").value = weight;
+}
+
+function loadRecentProducts() {
+    fetch("/api/products")
+        .then(res => res.json())
+        .then(products => {
+            if (!products || products.length === 0) return;
+            const container = document.getElementById("recentContainer");
+            const list = document.getElementById("recentList");
+            list.innerHTML = "";
+            container.classList.remove("d-none");
+
+            // Display latest 5 products
+            products.slice(0, 5).forEach(p => {
+                const chip = document.createElement("button");
+                chip.type = "button";
+                chip.className = "recent-chip";
+                chip.innerHTML = `<i class="bi bi-box"></i> ${p.product_name} <span class="badge bg-light text-secondary border">${p.weight_kg}kg</span>`;
+                chip.onclick = () => {
+                    document.getElementById("product_name").value = p.product_name;
+                    document.getElementById("weight_kg").value = p.weight_kg;
+                    fetchRecommendations(p.id, p.product_name, p.weight_kg);
+                };
+                list.appendChild(chip);
+            });
+        })
+        .catch(err => console.log("Recent products notice:", err));
+}
+
+function submitProduct() {
+    const productName = document.getElementById("product_name").value.trim();
+    const weightKg = parseFloat(document.getElementById("weight_kg").value);
+    const statusText = document.getElementById("statusText");
+
+    if (!productName) {
+        alert("Please enter a product name.");
         return;
     }
+    if (isNaN(weightKg) || weightKg <= 0) {
+        alert("Please enter a valid positive weight in kg.");
+        return;
+    }
+
+    // Show loading spinner
+    document.getElementById("loadingBox").classList.remove("d-none");
+    document.getElementById("resultsSection").classList.add("d-none");
+    statusText.innerText = "Saving product to database...";
 
     fetch("/api/product", {
         method: "POST",
@@ -74,52 +240,286 @@ function submitProduct() {
         })
     })
     .then(response => {
-        if (!response.ok) {
-            throw new Error("Failed to save product");
-        }
+        if (!response.ok) throw new Error("Failed to save product in database.");
         return response.json();
     })
     .then(data => {
-        const productId = data.product_id || 1;
-        fetchRecommendations(productId);
+        statusText.innerText = "Running ML models...";
+        loadRecentProducts();
+        fetchRecommendations(data.product_id, productName, weightKg);
     })
     .catch(error => {
+        document.getElementById("loadingBox").classList.add("d-none");
+        statusText.innerText = "";
         alert("Error: " + error.message);
     });
 }
 
-function fetchRecommendations(productId = 1) {
+function fetchRecommendations(productId, productName = "", weightKg = 0) {
     fetch("/api/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ product_id: parseInt(productId) })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error("Failed to generate recommendations.");
+        return response.json();
+    })
     .then(data => {
-        const table = document.getElementById("resultTable");
-        table.innerHTML = "";
+        document.getElementById("loadingBox").classList.add("d-none");
+        document.getElementById("resultsSection").classList.remove("d-none");
+        document.getElementById("statusText").innerText = "";
 
-        if (!data.recommendations || data.recommendations.length === 0) {
-            table.innerHTML = "<tr><td colspan='4' class='text-center'>No suitable recommendations found for this weight.</td></tr>";
-            return;
-        }
+        const displayName = productName || data.product_name || `Product #${productId}`;
+        const displayWeight = weightKg || data.weight_kg;
 
-        data.recommendations.forEach(item => {
-            table.innerHTML += `
-                <tr>
-                    <td><strong>${item.Material_Type}</strong></td>
-                    <td>${item.Co2_impact_index_pred.toFixed(3)}</td>
-                    <td>${item.cost_efficiency_pred.toFixed(3)}</td>
-                    <td><span class="badge bg-success">${item.suitability_score.toFixed(3)}</span></td>
-                </tr>
-            `;
-        });
+        document.getElementById("resultProductTitle").innerText = `Recommendations for: "${displayName}"`;
+        document.getElementById("resultProductWeight").innerText = `Package Load: ${displayWeight} kg`;
+
+        renderCards(data.recommendations, displayWeight);
+        renderTable(data.recommendations);
+        renderCharts(data.recommendations);
+
+        // Smooth scroll down to results
+        document.getElementById("resultsSection").scrollIntoView({ behavior: 'smooth', block: 'start' });
     })
     .catch(error => {
-        console.error("Error fetching recommendations:", error);
+        document.getElementById("loadingBox").classList.add("d-none");
+        document.getElementById("statusText").innerText = "";
+        alert("Error fetching recommendations: " + error.message);
+    });
+}
+
+function renderCards(recommendations, productWeight) {
+    const container = document.getElementById("cardsContainer");
+    container.innerHTML = "";
+
+    if (!recommendations || recommendations.length === 0) {
+        container.innerHTML = `<div class="col-12"><div class="alert alert-warning">No materials found capable of safely holding ${productWeight} kg.</div></div>`;
+        return;
+    }
+
+    const rankTitles = ["Best Overall Match", "Top Runner-up", "Eco Alternative"];
+    const rankBadges = ["rank-1-badge", "rank-2-badge", "rank-3-badge"];
+    const rankIcons = ["bi-award-fill", "bi-star-fill", "bi-leaf-fill"];
+
+    recommendations.forEach((item, index) => {
+        const rank = index + 1;
+        const matchPercent = Math.min(100, Math.round(item.suitability_score * 100));
+        const costPercent = Math.min(100, Math.round(item.cost_efficiency_pred * 100));
+        
+        // Calculate estimated CO2 savings compared to virgin plastic PP
+        const co2SavingsPerItem = Math.max(0.1, (PLASTIC_BASELINE_CO2 - item.Co2_impact_index_pred)).toFixed(2);
+        const totalEstimatedSavings = (co2SavingsPerItem * Math.max(1, productWeight)).toFixed(2);
+
+        const cardCol = document.createElement("div");
+        cardCol.className = "col-lg-4 col-md-6";
+
+        cardCol.innerHTML = `
+            <div class="rank-card ${rank === 1 ? 'rank-1' : ''}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="rank-badge ${rankBadges[index] || 'rank-2-badge'}">
+                        <i class="bi ${rankIcons[index] || 'bi-check-circle'}"></i> #${rank} ${rankTitles[index] || 'Option'}
+                    </span>
+                    <span class="badge ${rank === 1 ? 'bg-success' : 'bg-secondary'} rounded-pill">Score: ${item.suitability_score.toFixed(3)}</span>
+                </div>
+
+                <div class="material-name">${item.Material_Type}</div>
+
+                <div class="score-container">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <span class="text-muted small fw-semibold">AI Match Score</span>
+                        <span class="score-value">${matchPercent}%</span>
+                    </div>
+                    <div class="custom-progress mt-2">
+                        <div class="custom-progress-bar ${rank === 1 ? 'bg-success' : 'bg-primary'}" style="width: ${matchPercent}%"></div>
+                    </div>
+                </div>
+
+                <!-- Metric 1: Cost Efficiency -->
+                <div class="metric-row">
+                    <div class="metric-label">
+                        <span><i class="bi bi-cash-coin me-1 text-success"></i> Cost Efficiency</span>
+                        <span class="text-dark">${costPercent}%</span>
+                    </div>
+                    <div class="custom-progress">
+                        <div class="custom-progress-bar bg-success bg-opacity-75" style="width: ${costPercent}%"></div>
+                    </div>
+                </div>
+
+                <!-- Metric 2: CO2 Impact Index (Lower is better) -->
+                <div class="metric-row">
+                    <div class="metric-label">
+                        <span><i class="bi bi-cloud-minus me-1 text-info"></i> CO₂ Impact Index</span>
+                        <span class="text-dark">${item.Co2_impact_index_pred.toFixed(2)}</span>
+                    </div>
+                    <div class="custom-progress">
+                        <div class="custom-progress-bar bg-info" style="width: ${Math.min(100, Math.max(15, (1 - item.Co2_impact_index_pred/4) * 100))}%"></div>
+                    </div>
+                </div>
+
+                <!-- CO2 Savings Badge -->
+                <div class="co2-savings-pill">
+                    <i class="bi bi-tree-fill text-success fs-5"></i>
+                    <div>
+                        <div>Saves <strong>~${totalEstimatedSavings} kg CO₂</strong></div>
+                        <div class="text-muted" style="font-size: 0.725rem;">vs. Standard Plastic Packaging</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(cardCol);
+    });
+}
+
+function renderTable(recommendations) {
+    const tbody = document.getElementById("resultTableBody");
+    tbody.innerHTML = "";
+
+    recommendations.forEach((item, index) => {
+        const rank = index + 1;
+        tbody.innerHTML += `
+            <tr>
+                <td><span class="badge ${rank === 1 ? 'bg-success' : 'bg-light text-dark border'} rounded-pill">#${rank}</span></td>
+                <td><strong>${item.Material_Type}</strong></td>
+                <td>${item.Co2_impact_index_pred.toFixed(3)}</td>
+                <td>${item.cost_efficiency_pred.toFixed(3)}</td>
+                <td><span class="badge bg-success-subtle text-success border border-success-subtle">${(item.suitability_score * 100).toFixed(1)}%</span></td>
+            </tr>
+        `;
+    });
+}
+
+// ---- Chart.js Rendering ----
+let barChartInstance = null;
+let doughnutChartInstance = null;
+
+function renderCharts(recommendations) {
+    const labels = recommendations.map(r => r.Material_Type);
+    const co2Data = recommendations.map(r => parseFloat(r.Co2_impact_index_pred.toFixed(3)));
+    const costData = recommendations.map(r => parseFloat((r.cost_efficiency_pred * 100).toFixed(1)));
+    const scoreData = recommendations.map(r => parseFloat((r.suitability_score * 100).toFixed(1)));
+
+    // Destroy old chart instances to avoid canvas reuse errors
+    if (barChartInstance) { barChartInstance.destroy(); }
+    if (doughnutChartInstance) { doughnutChartInstance.destroy(); }
+
+    // --- Grouped Bar Chart ---
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    barChartInstance = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'CO₂ Impact Index',
+                    data: co2Data,
+                    backgroundColor: 'rgba(14, 165, 233, 0.7)',
+                    borderColor: 'rgba(14, 165, 233, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                },
+                {
+                    label: 'Cost Efficiency (%)',
+                    data: costData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                },
+                {
+                    label: 'Suitability Score (%)',
+                    data: scoreData,
+                    backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                    borderColor: 'rgba(245, 158, 11, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { family: 'Plus Jakarta Sans', size: 12 }, padding: 16 }
+                },
+                tooltip: {
+                    backgroundColor: '#0f172a',
+                    titleFont: { family: 'Plus Jakarta Sans' },
+                    bodyFont: { family: 'Plus Jakarta Sans' },
+                    cornerRadius: 8,
+                    padding: 10
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } }
+                }
+            }
+        }
+    });
+
+    // --- Doughnut Chart ---
+    const doughnutCtx = document.getElementById('doughnutChart').getContext('2d');
+    const doughnutColors = [
+        'rgba(16, 185, 129, 0.85)',
+        'rgba(14, 165, 233, 0.75)',
+        'rgba(245, 158, 11, 0.75)'
+    ];
+    const doughnutBorders = [
+        'rgba(16, 185, 129, 1)',
+        'rgba(14, 165, 233, 1)',
+        'rgba(245, 158, 11, 1)'
+    ];
+
+    doughnutChartInstance = new Chart(doughnutCtx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Suitability Score (%)',
+                data: scoreData,
+                backgroundColor: doughnutColors.slice(0, labels.length),
+                borderColor: doughnutBorders.slice(0, labels.length),
+                borderWidth: 2,
+                hoverOffset: 12
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { family: 'Plus Jakarta Sans', size: 12 }, padding: 14, usePointStyle: true }
+                },
+                tooltip: {
+                    backgroundColor: '#0f172a',
+                    titleFont: { family: 'Plus Jakarta Sans' },
+                    bodyFont: { family: 'Plus Jakarta Sans' },
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) {
+                            return ` ${ctx.label}: ${ctx.parsed.toFixed(1)}% match`;
+                        }
+                    }
+                }
+            }
+        }
     });
 }
 </script>
 
 </body>
 </html>
+
