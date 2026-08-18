@@ -189,47 +189,61 @@ def recommend_materials_by_weight(weight_kg):
     feasible_mask = material_df['Weight_Capacity_kg'] >= weight_kg
     feasible_material_df = material_df[feasible_mask].copy()
 
+    if feasible_material_df.empty:
+        # Fallback to materials with maximum available capacity
+        max_cap = material_df['Weight_Capacity_kg'].max()
+        feasible_material_df = material_df[material_df['Weight_Capacity_kg'] == max_cap].copy()
+
     X = feasible_material_df[FEATURES]
     X_scaled = scaler.transform(X)
 
     feasible_material_df['Co2_impact_index_pred'] = co2_model.predict(X_scaled)
     feasible_material_df['cost_efficiency_pred'] = cost_model.predict(X_scaled)
 
-    feasible_material_df['capacity_utilization'] = (
-        weight_kg / feasible_material_df['Weight_Capacity_kg']
+    # Calculate Capacity Fit Ratio (weight_kg / material capacity)
+    # Ratio is between 0 and 1 for feasible items
+    feasible_material_df['capacity_ratio'] = weight_kg / feasible_material_df['Weight_Capacity_kg']
+
+    # Apply Over-Packaging Penalty: Reward optimal fit (ratio ~ 0.5 - 1.0), penalize ratio < 0.2 (over-packaging)
+    # Penalty multiplier decreases exponentially as material capacity becomes excessively oversized
+    feasible_material_df['fit_score'] = (
+        feasible_material_df['capacity_ratio'] * 
+        np.exp(-1.5 * (1.0 - feasible_material_df['capacity_ratio']))
     )
 
-    # normalization
-    feasible_material_df['co2_norm'] = (
-        (feasible_material_df['Co2_impact_index_pred'] - feasible_material_df['Co2_impact_index_pred'].min()) /
-        (feasible_material_df['Co2_impact_index_pred'].max() - feasible_material_df['Co2_impact_index_pred'].min())
+    # Group by Material_Type to compute clean average predictions across material instances
+    grouped = feasible_material_df.groupby('Material_Type').agg({
+        'Co2_impact_index_pred': 'mean',
+        'cost_efficiency_pred': 'mean',
+        'fit_score': 'mean'
+    }).reset_index()
+
+    # Normalization across material types for current weight query
+    co2_range = grouped['Co2_impact_index_pred'].max() - grouped['Co2_impact_index_pred'].min()
+    co2_min = grouped['Co2_impact_index_pred'].min()
+    grouped['co2_norm'] = (grouped['Co2_impact_index_pred'] - co2_min) / (co2_range if co2_range > 0 else 1.0)
+
+    cost_range = grouped['cost_efficiency_pred'].max() - grouped['cost_efficiency_pred'].min()
+    cost_min = grouped['cost_efficiency_pred'].min()
+    grouped['cost_norm'] = (grouped['cost_efficiency_pred'] - cost_min) / (cost_range if cost_range > 0 else 1.0)
+
+    fit_range = grouped['fit_score'].max() - grouped['fit_score'].min()
+    fit_min = grouped['fit_score'].min()
+    grouped['fit_norm'] = (grouped['fit_score'] - fit_min) / (fit_range if fit_range > 0 else 1.0)
+
+    # Composite Suitability Score (35% CO2 reduction, 35% Cost efficiency, 30% Optimal capacity fit)
+    grouped['suitability_score'] = (
+        0.35 * (1.0 - grouped['co2_norm']) +
+        0.35 * (1.0 - grouped['cost_norm']) +
+        0.30 * grouped['fit_norm']
     )
 
-    feasible_material_df['cost_norm'] = (
-        (feasible_material_df['cost_efficiency_pred'] - feasible_material_df['cost_efficiency_pred'].min()) /
-        (feasible_material_df['cost_efficiency_pred'].max() - feasible_material_df['cost_efficiency_pred'].min())
-    )
-
-    feasible_material_df['util_norm'] = (
-        (feasible_material_df['capacity_utilization'] - feasible_material_df['capacity_utilization'].min()) /
-        (feasible_material_df['capacity_utilization'].max() - feasible_material_df['capacity_utilization'].min())
-    )
-
-    feasible_material_df['suitability_score'] = (
-        0.4 * (1 - feasible_material_df['co2_norm']) +
-        0.4 * (1 - feasible_material_df['cost_norm']) +
-        0.2 * feasible_material_df['util_norm']
-    )
-
-    top = (
-        feasible_material_df
-        .sort_values('suitability_score', ascending=False)
-        .drop_duplicates(subset='Material_Type')
-        .head(3)
-    )
+    # Sort descending and return top 3
+    top = grouped.sort_values('suitability_score', ascending=False).head(3)
 
     return top[['Material_Type',
                 'Co2_impact_index_pred',
                 'cost_efficiency_pred',
                 'suitability_score']]
+
 
