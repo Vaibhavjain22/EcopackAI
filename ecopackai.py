@@ -185,7 +185,64 @@ def recommend_material(index):
 
 # recommending material by weight for storing them in DB
 
-def recommend_materials_by_weight(weight_kg):
+# Category-specific minimum material requirements
+# Each category defines constraints that materials must satisfy
+CATEGORY_CONSTRAINTS = {
+    "general": {
+        "label": "General / Mixed",
+        "min_tensile": 0,
+        "min_moisture": 0,
+        "min_biodegradability": 0
+    },
+    "electronics": {
+        "label": "Electronics & Gadgets",
+        "min_tensile": 25,       # Needs moderate structural rigidity
+        "min_moisture": 6,       # Must protect from moisture/humidity
+        "min_biodegradability": 0
+    },
+    "food": {
+        "label": "Food & Perishables",
+        "min_tensile": 0,
+        "min_moisture": 5,       # Must resist moisture & condensation
+        "min_biodegradability": 80  # Must be highly biodegradable for food safety
+    },
+    "fragile": {
+        "label": "Fragile / Glassware",
+        "min_tensile": 30,       # High structural strength to absorb impacts
+        "min_moisture": 0,
+        "min_biodegradability": 0
+    },
+    "clothing": {
+        "label": "Clothing & Textiles",
+        "min_tensile": 0,        # Lightweight materials are fine
+        "min_moisture": 3,       # Basic moisture protection
+        "min_biodegradability": 50  # Prefer eco-friendly for fashion industry
+    },
+    "heavy_industrial": {
+        "label": "Heavy / Industrial Goods",
+        "min_tensile": 50,       # Must handle high mechanical stress
+        "min_moisture": 5,
+        "min_biodegradability": 0
+    }
+}
+
+
+def recommend_materials_by_weight(weight_kg, category="general"):
+    """
+    Generate top-3 packaging material recommendations based on product weight
+    and product category constraints.
+    
+    Args:
+        weight_kg (float): Product weight in kilograms
+        category (str): Product category key from CATEGORY_CONSTRAINTS
+    
+    Returns:
+        DataFrame with top 3 materials ranked by composite suitability score
+    """
+    # Get category constraints (default to general if unknown)
+    constraints = CATEGORY_CONSTRAINTS.get(category, CATEGORY_CONSTRAINTS["general"])
+
+    # Step 1: Filter by weight capacity
     feasible_mask = material_df['Weight_Capacity_kg'] >= weight_kg
     feasible_material_df = material_df[feasible_mask].copy()
 
@@ -194,6 +251,27 @@ def recommend_materials_by_weight(weight_kg):
         max_cap = material_df['Weight_Capacity_kg'].max()
         feasible_material_df = material_df[material_df['Weight_Capacity_kg'] == max_cap].copy()
 
+    # Step 2: Apply category-specific material constraints
+    if constraints["min_tensile"] > 0:
+        feasible_material_df = feasible_material_df[
+            feasible_material_df['Tensile_Strength_MPa'] >= constraints["min_tensile"]
+        ]
+    if constraints["min_moisture"] > 0:
+        feasible_material_df = feasible_material_df[
+            feasible_material_df['Moisture_Barrier_Grade'] >= constraints["min_moisture"]
+        ]
+    if constraints["min_biodegradability"] > 0:
+        feasible_material_df = feasible_material_df[
+            feasible_material_df['Biodegradability_Score'] >= constraints["min_biodegradability"]
+        ]
+
+    # If all materials were filtered out, fall back to weight-only filtering
+    if feasible_material_df.empty:
+        feasible_material_df = material_df[material_df['Weight_Capacity_kg'] >= weight_kg].copy()
+        if feasible_material_df.empty:
+            max_cap = material_df['Weight_Capacity_kg'].max()
+            feasible_material_df = material_df[material_df['Weight_Capacity_kg'] == max_cap].copy()
+
     X = feasible_material_df[FEATURES]
     X_scaled = scaler.transform(X)
 
@@ -201,17 +279,15 @@ def recommend_materials_by_weight(weight_kg):
     feasible_material_df['cost_efficiency_pred'] = cost_model.predict(X_scaled)
 
     # Calculate Capacity Fit Ratio (weight_kg / material capacity)
-    # Ratio is between 0 and 1 for feasible items
     feasible_material_df['capacity_ratio'] = weight_kg / feasible_material_df['Weight_Capacity_kg']
 
-    # Apply Over-Packaging Penalty: Reward optimal fit (ratio ~ 0.5 - 1.0), penalize ratio < 0.2 (over-packaging)
-    # Penalty multiplier decreases exponentially as material capacity becomes excessively oversized
+    # Apply Over-Packaging Penalty: Reward optimal fit, penalize over-sized materials
     feasible_material_df['fit_score'] = (
         feasible_material_df['capacity_ratio'] * 
         np.exp(-1.5 * (1.0 - feasible_material_df['capacity_ratio']))
     )
 
-    # Group by Material_Type to compute clean average predictions across material instances
+    # Group by Material_Type to compute clean average predictions
     grouped = feasible_material_df.groupby('Material_Type').agg({
         'Co2_impact_index_pred': 'mean',
         'cost_efficiency_pred': 'mean',
@@ -245,5 +321,3 @@ def recommend_materials_by_weight(weight_kg):
                 'Co2_impact_index_pred',
                 'cost_efficiency_pred',
                 'suitability_score']]
-
-

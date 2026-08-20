@@ -17,12 +17,26 @@ def init_db():
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
                 product_name VARCHAR(255) NOT NULL,
-                weight_kg DOUBLE PRECISION NOT NULL
+                weight_kg DOUBLE PRECISION NOT NULL,
+                category VARCHAR(50) DEFAULT 'general'
             );
+        """)
+        # Migration: add category column if table already exists without it
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'products' AND column_name = 'category'
+                ) THEN
+                    ALTER TABLE products ADD COLUMN category VARCHAR(50) DEFAULT 'general';
+                END IF;
+            END $$;
         """)
         conn.commit()
         cur.close()
         conn.close()
         print("Database initialized successfully.")
     except Exception as e:
-        print(f"Database connection warning/notice: {e}")
+        print(f"Database connection warning/notice: {e}")
+

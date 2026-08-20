@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
-from ecopackai import recommend_material, recommend_materials_by_weight
+from ecopackai import recommend_material, recommend_materials_by_weight, CATEGORY_CONSTRAINTS
 from db import get_connection, init_db
 
 # Initialize FastAPI Application
@@ -37,6 +37,7 @@ cost_model = joblib.load("cost_model")
 class ProductInputSchema(BaseModel):
     product_name: str = Field(..., example="electronics")
     weight_kg: float = Field(..., gt=0, example=2.5)
+    category: str = Field(default="general", example="electronics")
 
 class RecommendRequestSchema(BaseModel):
     product_id: int = Field(..., example=1)
@@ -56,6 +57,16 @@ def home(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 
+# Available Product Categories API
+@app.get("/api/categories")
+def get_categories():
+    """Return available product categories and their constraint labels."""
+    return [
+        {"key": key, "label": val["label"]}
+        for key, val in CATEGORY_CONSTRAINTS.items()
+    ]
+
+
 
 # 1. Product Input Handling API
 @app.post("/api/product")
@@ -65,8 +76,8 @@ def product_input(data: ProductInputSchema):
         cur = conn.cursor()
 
         cur.execute(
-            "INSERT INTO products (product_name, weight_kg) VALUES (%s, %s) RETURNING id",
-            (data.product_name, data.weight_kg)
+            "INSERT INTO products (product_name, weight_kg, category) VALUES (%s, %s, %s) RETURNING id",
+            (data.product_name, data.weight_kg, data.category)
         )
 
         product_id = cur.fetchone()[0]
@@ -79,7 +90,8 @@ def product_input(data: ProductInputSchema):
             "message": "Product stored successfully in database",
             "product_id": product_id,
             "product_name": data.product_name,
-            "weight_kg": data.weight_kg
+            "weight_kg": data.weight_kg,
+            "category": data.category
         }
     except Exception as e:
         raise HTTPException(
@@ -95,7 +107,7 @@ def get_products():
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT id, product_name, weight_kg FROM products ORDER BY id DESC")
+        cur.execute("SELECT id, product_name, weight_kg, category FROM products ORDER BY id DESC")
         rows = cur.fetchall()
 
         cur.close()
@@ -106,7 +118,8 @@ def get_products():
             products.append({
                 "id": row[0],
                 "product_name": row[1],
-                "weight_kg": row[2]
+                "weight_kg": row[2],
+                "category": row[3] if len(row) > 3 else "general"
             })
 
         return products
@@ -127,7 +140,7 @@ def recommend(data: RecommendRequestSchema):
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT product_name, weight_kg FROM products WHERE id = %s",
+            "SELECT product_name, weight_kg, category FROM products WHERE id = %s",
             (data.product_id,)
         )
 
@@ -138,10 +151,12 @@ def recommend(data: RecommendRequestSchema):
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
-        product_name, weight_kg = row
+        product_name = row[0]
+        weight_kg = row[1]
+        category = row[2] if len(row) > 2 else "general"
 
-        # Call ML engine using weight
-        recommendations = recommend_materials_by_weight(weight_kg)
+        # Call ML engine using weight and category
+        recommendations = recommend_materials_by_weight(weight_kg, category=category)
 
         return {
             "product_id": data.product_id,

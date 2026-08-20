@@ -49,26 +49,39 @@
         <div class="mb-4">
             <span class="form-label text-muted d-block small mb-2">Quick Test Presets:</span>
             <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="preset-btn" onclick="applyPreset('Smartphone Box', 0.4)">📱 Smartphone (0.4 kg)</button>
-                <button type="button" class="preset-btn" onclick="applyPreset('Running Shoes', 1.2)">👟 Running Shoes (1.2 kg)</button>
-                <button type="button" class="preset-btn" onclick="applyPreset('Ultrabook Laptop', 2.6)">💻 Laptop (2.6 kg)</button>
-                <button type="button" class="preset-btn" onclick="applyPreset('Ceramic Crockery', 4.8)">🏺 Ceramic Set (4.8 kg)</button>
-                <button type="button" class="preset-btn" onclick="applyPreset('Office Monitor', 6.5)">🖥️ Office Monitor (6.5 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Smartphone Box', 0.4, 'electronics')">📱 Smartphone (0.4 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Organic Granola', 0.6, 'food')">🥣 Granola Pack (0.6 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Running Shoes', 1.2, 'clothing')">👟 Running Shoes (1.2 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Wine Bottle Set', 3.5, 'fragile')">🍷 Wine Bottles (3.5 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Ultrabook Laptop', 2.6, 'electronics')">💻 Laptop (2.6 kg)</button>
+                <button type="button" class="preset-btn" onclick="applyPreset('Engine Parts', 8.0, 'heavy_industrial')">⚙️ Engine Parts (8.0 kg)</button>
             </div>
         </div>
 
         <div class="row g-3">
-            <div class="col-md-7">
+            <div class="col-md-5">
                 <label for="product_name" class="form-label">Product Name / Identifier</label>
                 <input type="text" id="product_name" class="form-control" placeholder="e.g. Wireless Noise Canceling Headphones" required>
             </div>
 
-            <div class="col-md-5">
+            <div class="col-md-3">
                 <label for="weight_kg" class="form-label">Product Weight (kg)</label>
                 <div class="input-group">
                     <input type="number" id="weight_kg" class="form-control" placeholder="e.g. 1.5" step="0.1" min="0.05" required>
                     <span class="input-group-text bg-light text-muted">kg</span>
                 </div>
+            </div>
+
+            <div class="col-md-4">
+                <label for="product_category" class="form-label">Product Category</label>
+                <select id="product_category" class="form-select">
+                    <option value="general" selected>🏷️ General / Mixed</option>
+                    <option value="electronics">📱 Electronics & Gadgets</option>
+                    <option value="food">🥗 Food & Perishables</option>
+                    <option value="fragile">🔮 Fragile / Glassware</option>
+                    <option value="clothing">👕 Clothing & Textiles</option>
+                    <option value="heavy_industrial">⚙️ Heavy / Industrial Goods</option>
+                </select>
             </div>
         </div>
 
@@ -180,9 +193,10 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRecentProducts();
 });
 
-function applyPreset(name, weight) {
+function applyPreset(name, weight, category) {
     document.getElementById("product_name").value = name;
     document.getElementById("weight_kg").value = weight;
+    document.getElementById("product_category").value = category || "general";
 }
 
 function loadRecentProducts() {
@@ -215,6 +229,7 @@ function loadRecentProducts() {
 function submitProduct() {
     const productName = document.getElementById("product_name").value.trim();
     const weightKg = parseFloat(document.getElementById("weight_kg").value);
+    const category = document.getElementById("product_category").value;
     const statusText = document.getElementById("statusText");
 
     if (!productName) {
@@ -236,7 +251,8 @@ function submitProduct() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             product_name: productName,
-            weight_kg: weightKg
+            weight_kg: weightKg,
+            category: category
         })
     })
     .then(response => {
