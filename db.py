@@ -1,13 +1,19 @@
+import os
 import psycopg2
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def get_connection():
     return psycopg2.connect(
-        host="localhost",
-        database="ecopackdb",
-        user="postgres",
-        password="radha123",
-        port="5432"
+        host=os.getenv("DB_HOST", "localhost"),
+        database=os.getenv("DB_NAME", "ecopackdb"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", "radha123"),
+        port=os.getenv("DB_PORT", "5432")
     )
+
 
 def init_db():
     try:

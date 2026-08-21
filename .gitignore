@@ -34,5 +34,3 @@ final_product_dataset*.csv
 # OS files
 .DS_Store
 Thumbs.db
-#database 
-db.py
